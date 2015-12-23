@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>D3: Creating paragraphs dynamically from data</title>
+    <style>
+        div.bar {
+            display: inline-block;
+            width: 20px;
+            height: 75px; /* We'll override height later */
+            background-color: teal;
+            margin-right: 2px;
+        }
+
+        div.container {
+            display: inline-block;
+            width: 320px;
+            height: 575px;
+            background-color: #e0e0e0;
+            margin: 5px;
+        }
+    </style>
+    <script type="text/javascript" src="d3/d3.js"></script>
+</head>
+<body>
+<script type="text/javascript">
+    var dataset;
+    var divHeight = 600;
+    var file = "wine_sample.csv";
+    var linearScale = d3.scale.linear().domain([0, 10]).range([0, divHeight]);
+
+    var data_keys=[];
+    var dsv = d3.dsv(";", "text/plain");
+    dsv(file, function (data) {
+        dataset = data;    //Once loaded, copy to dataset.
+        if(dataset.length>0){
+            for (var prop in dataset[0]) {
+                data_keys.push(prop);
+            }
+            generateVis();     //Then call other functions that
+            //hideLoadingMsg();  //depend on data being present.
+        }
+    });
+    function generateVis() {
+        d3.select("body").append("div").attr("id","wrapper");
+        var eachData = d3.select("#wrapper").selectAll("p")
+                .data(dataset)
+                .enter();
+        var divs = eachData.append("div").attr("class", "container");
+
+        data_keys.forEach(function(prop){
+            divs.append("p").text(function (d) {
+                return prop + ":" + d[prop];
+            });
+        });
+
+        d3.selectAll(".container").sort(function (a, b) {
+            return b["quality"] - a["quality"]
+        });
+    }
+</script>
+</body>
+</html>
