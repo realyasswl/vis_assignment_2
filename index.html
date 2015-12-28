@@ -4,25 +4,35 @@
     <meta charset="utf-8">
     <title>What makes good taste of wine?</title>
     <style>
-        div.bar {
+        #wrapper {
             display: inline-block;
-            width: 20px;
-            height: 75px; /* We'll override height later */
-            background-color: teal;
-            margin-right: 2px;
+            width: 1600px;
         }
 
         div.container {
             display: inline-block;
-            width: 320px;
-            height: 575px;
+            width: 390px;
+            height: 420px;
             background-color: #e0e0e0;
             margin: 5px;
+        }
+
+        div.control {
+            float: right;
+        }
+
+        div.checkb {
+            margin: 2px 0 2px 0;
+            width: 240px;
         }
     </style>
     <script type="text/javascript" src="d3/d3.js"></script>
 </head>
 <body>
+<div id="wrapper"></div>
+<div class="control">
+    <input type="button" onclick="generateVis()" value="reload"/>
+</div>
 <script type="text/javascript">
     var dataset;
     var file = "wine_white.csv";
@@ -31,68 +41,125 @@
     var data_keys = [];
     var dsv = d3.dsv(";", "text/plain");
     dsv(file, function (data) {
-        dataset = data;    //Once loaded, copy to dataset.
+        dataset = data
+                .sort(function (a, b) {
+                    return b["quality"] - a["quality"]
+                })
+                .filter(function (d, i) {
+                    return i < 4;
+                });    //Once loaded, copy to dataset.
         if (dataset.length > 0) {
-            for (var prop in dataset[0]) {
-                data_keys.push(prop);
+            var keys = Object.keys(dataset[0]);
+            for (var i = 0; i < keys.length; i++) {
+                if (keys[i] == "quality") {
+                    continue;
+                }
+                data_keys.push({key: keys[i], index: i});
             }
-            generateVis();     //Then call other functions that
-            //hideLoadingMsg();  //depend on data being present.
+            d3.select(".control").append("div").selectAll("input").data(data_keys)
+                    .enter()
+                    .append("div").attr("class", "checkb")
+                    .append('label')
+                    .attr('for', function (d, i) {
+                        return 'a' + i;
+                    })
+                    .text(function (d) {
+                        return d.key;
+                    })
+                    .append("input")
+                    .attr("checked", true)
+                    .attr("type", "checkbox")
+                    .attr("id", function (d, i) {
+                        return 'a' + i;
+                    })
+                    .attr("onClick", "checkbox_click(this)");
+            generateVis();
         }
     });
-    function breakObjectIntoArray(datum) {
-        var data_array = [];
-        data_keys.forEach(function (prop) {
-            data_array.push({data_key: prop, data_value: datum[prop]});
-        });
-        return data_array;
+    function checkbox_click(obj) {
+        var index = 0;
+        if (obj.checked) {
+            for (var i = 0; i < data_keys.length; i++) {
+                if (obj.__data__.index < data_keys[i].index) {
+                    index = i;
+                    break;
+                }
+            }
+            data_keys.splice(index, 0, obj.__data__);
+        } else {
+            for (var i = 0; i < data_keys.length; i++) {
+                if (obj.__data__.key == data_keys[i].key) {
+                    index = i;
+                    break;
+                }
+            }
+            data_keys.splice(index, 1);
+        }
+        console.dir(data_keys);
+        updateVis();
+    }
+    function updateVis() {
+        var container = d3.select("#wrapper").selectAll("div")
+                .data(dataset);
+        var svg = container
+                .selectAll("svg")
+                .data(function (d) {
+                    var data_array = [];
+                    data_keys.forEach(function (prop) {
+                        data_array.push({data_key: prop.key, data_value: d[prop.key]});
+                    });
+                    return [data_array];
+                }).select("g");
+
+        var update_sel = svg.selectAll("path").data(function (d) {
+                    var result = pie(d);
+                    return result;
+                }).attr("fill", function (d, i) {
+                    return color(i);
+                })
+                .attr("d", arc)
+                ;
+        update_sel.enter().append("path")
+                .attr("fill", function (d, i) {
+                    return color(i);
+                })
+                .attr("d", arc);
+        update_sel.exit().remove();
+
     }
     function generateVis() {
-        d3.select("body").append("div").attr("id", "wrapper");
-
         var container = d3.select("#wrapper").selectAll("div")
-                .data(dataset.sort(function (a, b) {
-                    return b["quality"] - a["quality"]
-                }).filter(function(d,i){
-                    return i<50;
-                }))
-                .enter().append("div").attr("class", "container");
+                .data(dataset).enter().append("div").attr("class", "container");
 
-//        var p = container.selectAll("p").data(function (d) {
-//            return breakObjectIntoArray(d);
-//        }).enter().append("p").text(function (d) {
-//            return d.data_key + ":" + d.data_value;
-//        });
-
-        var svg = container.append("svg")
+        var svg = container
+                .selectAll("svg")
+                .data(function (d) {
+                    var data_array = [];
+                    data_keys.forEach(function (prop) {
+                        data_array.push({data_key: prop.key, data_value: d[prop.key]});
+                    });
+                    return [data_array];
+                })
+                .enter()
+                .append("svg")
                 .attr("width", width)
                 .attr("height", height)
                 .append("g")
                 .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
 
-        svg.selectAll("path")
-                .data(function (d) {
-                    var data_array = [];
-                    data_keys.forEach(function (prop) {
-                        if (prop == data_keys[data_keys.length - 1]) {
-                            return;
-                        }
-                        data_array.push({data_key: prop, data_value: d[prop]});
-                    });
-                    return pie(data_array);
-                })
-                .enter().append("path")
-                .style("fill", function (d, i) {
+        var update_sel = svg.selectAll("path").data(function (d) {
+                    var result = pie(d);
+                    return result;
+                });
+
+        update_sel.enter().append("path")
+                .attr("fill", function (d, i) {
                     return color(i);
                 })
                 .attr("d", arc);
-
         container.append("p").text(function (d) {
             return d["quality"]
         });
-//        container.sort(function (a, b) {
-//            return b["quality"] - a["quality"]
-//        });
     }
 
     var width = 300;
