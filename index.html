@@ -31,17 +31,26 @@
 <body>
 <div id="wrapper"></div>
 <div class="control">
-<a href="parallel_coordinates.html">parallel coordinates</a>
-</br>
+    <a href="parallel_coordinates.html">parallel coordinates</a>
+    </br>
     <input type="button" onclick="generateVis()" value="reload"/>
 </div>
 <script type="text/javascript">
     var dataset;
     var file = "wine_white.csv";
-    var linearScale = d3.scale.linear().domain([0, 10]).range([0, 200]);
 
     var data_keys = [];
+    data_keys.contains = function (t) {
+        for (var i = 0; i < data_keys.length; i++) {
+            if (data_keys[i].key == t)
+                return true;
+            else
+                continue;
+        }
+        return false;
+    }
     var dsv = d3.dsv(";", "text/plain");
+    var paths, svgs;
     dsv(file, function (data) {
         dataset = data
                 .sort(function (a, b) {
@@ -74,10 +83,37 @@
                     .attr("id", function (d, i) {
                         return 'a' + i;
                     })
-                    .attr("onClick", "checkbox_click(this)");
+                    .attr("onClick", "checkbox_click(this)")
+            ;
             generateVis();
         }
     });
+    function generateVis() {
+        var container = d3.select("#wrapper").selectAll("div")
+                .data(dataset).enter().append("div").attr("class", "container");
+
+        svgs = container
+                .selectAll("svg")
+                .data(prepareData)
+                .enter()
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .append("g")
+                .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+        paths = svgs.selectAll("path").data(pie);
+
+        paths.enter().append("path")
+                .attr("fill", colorFromIndex)
+                .attr("d", arc)
+                .each(function (d) {
+                    this._current = d;
+                });
+        container.append("p").text(function (d) {
+            return d["quality"]
+        });
+    }
     function checkbox_click(obj) {
         var index = 0;
         if (obj.checked) {
@@ -98,72 +134,66 @@
             data_keys.splice(index, 1);
         }
         console.dir(data_keys);
-        updateVis();
+//        updateVis();
+        pie.value(function (d) {
+            console.log(d.data_key);
+            return data_keys.contains(d.data_key)? d.data_value:0;
+        }); // change the value function
+        paths = paths.data(pie); // compute the new angles
+        paths.transition().duration(750).attrTween("d", arcTween); // redraw the arcs
+    }
+    function arcTween(a) {
+//        console.dir(this._current);
+//        console.dir(a);
+        var i = d3.interpolate(this._current, a);
+        this._current = i(0);
+        return function (t) {
+            return arc(i(t));
+        };
+    }
+    function prepareData(d) {
+        //transfer Object to array, automatically put values for each key in d into data_array
+        var data_array = [];
+        data_keys.forEach(function (prop) {
+            data_array.push({data_key: prop.key, data_value: d[prop.key], data_index: prop.index});
+        });
+        return [data_array];
+    }
+    function colorFromIndex(d, i) {
+        return color(this.__data__.data.data_index);
     }
     function updateVis() {
         var container = d3.select("#wrapper").selectAll("div")
                 .data(dataset);
-        var svg = container
+        svgs = container
                 .selectAll("svg")
-                .data(function (d) {
-                    var data_array = [];
-                    data_keys.forEach(function (prop) {
-                        data_array.push({data_key: prop.key, data_value: d[prop.key]});
-                    });
-                    return [data_array];
-                }).select("g");
+                .data(prepareData)
+                .select("g");
 
-        var update_sel = svg.selectAll("path").data(function (d) {
-                    var result = pie(d);
-                    return result;
-                }).attr("fill", function (d, i) {
-                    return color(i);
-                })
+        var update_sel = svgs.selectAll("path").data(pie)
+                .attr("fill", colorFromIndex)
                 .attr("d", arc)
                 ;
-        update_sel.enter().append("path")
-                .attr("fill", function (d, i) {
-                    return color(i);
-                })
-                .attr("d", arc);
-        update_sel.exit().remove();
-
+        update_sel.enter().append("path").attr("fill", colorFromIndex)
+                .attr("d", arc).transition().attrTween("d", normalizePath);
+        update_sel.exit().transition().attrTween("d", minimizePath).remove();
     }
-    function generateVis() {
-        var container = d3.select("#wrapper").selectAll("div")
-                .data(dataset).enter().append("div").attr("class", "container");
-
-        var svg = container
-                .selectAll("svg")
-                .data(function (d) {
-                    var data_array = [];
-                    data_keys.forEach(function (prop) {
-                        data_array.push({data_key: prop.key, data_value: d[prop.key]});
-                    });
-                    return [data_array];
-                })
-                .enter()
-                .append("svg")
-                .attr("width", width)
-                .attr("height", height)
-                .append("g")
-                .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
-
-        var update_sel = svg.selectAll("path").data(function (d) {
-                    var result = pie(d);
-                    return result;
-                });
-
-        update_sel.enter().append("path")
-                .attr("fill", function (d, i) {
-                    return color(i);
-                })
-                .attr("d", arc);
-        container.append("p").text(function (d) {
-            return d["quality"]
-        });
+    function normalizePath(b) {
+        console.dir(b);
+        var sa = b.startAngle;
+        var i = d3.interpolate({endAngle: sa}, b);
+        return function (t) {
+            return arc(i(t));
+        };
     }
-
+    function minimizePath(b) {
+//        console.dir(b);
+        var sa = b.startAngle;
+        var i = d3.interpolate(b, {endAngle: sa});
+        return function (t) {
+            return arc(i(t));
+        };
+    }
     var width = 300;
     var height = 300;
     var radius = height / 2 - 10;
@@ -173,10 +203,11 @@
             .innerRadius(radius - 80)
             .outerRadius(radius);
 
-    var pie = d3.layout.pie()
-            .padAngle(.02).value(function (d) {
-                return d.data_value;
-            });
+    var pie = d3.layout.pie().value(function (d) {
+        return d.data_value;
+    }).sort(function (a, b) {
+        return b["data_index"] - a["data_index"]
+    });
 </script>
 </body>
 </html>
