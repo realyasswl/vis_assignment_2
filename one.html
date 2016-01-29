@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link href="one.css" type="text/css" rel="stylesheet"/>
+    <script src="d3/d3.js"></script>
+    <script src="common_variables.js"></script>
+</head>
+<body>
+<script>
+    dsv(file, function (error, dat) {
+                if (error) throw error;
+                dataset = dat.sort(function (a, b) {
+                    return a["quality"] - b["quality"]
+                }).filter(function (d, i) {
+                    return i<8;
+//                    return true;
+                });
+                factors = d3.keys(dat[0]).filter(function (key) {
+                    return key !== "quality";
+                });
+//                color_factor.domain(factors);
+                draw(dataset);
+            }
+    );
+    var datasmooth=function (d){
+        return Math.sqrt(d);
+//        return d;
+    };
+
+    function transition() {
+        x.domain([0, current_dataset.length]);
+        d3.selectAll(".streampath")
+                .data(function () {
+                    return layers = data2layer(current_dataset,datasmooth);
+                })
+                .transition()
+                .duration(1200)
+                .attr("d", area);
+
+        var backrect = d3.selectAll(".backgroundrect").data(dataedge(current_dataset), function (d) {
+            return d.quality;
+        });
+
+        backrect.transition()
+                .duration(1200)
+                .attr("x", function (d) {
+                    return x(d.begins_at);
+                })
+                .attr("width", function (d) {
+                    return x(d.ends_at - d.begins_at);
+                });
+        backrect.exit().transition()
+                .duration(1200)
+                .attr("x", function (d, i) {
+                    if (d.ends_at <= index0) {
+                        return 0;
+                    }
+                    if (d.begins_at >= index1) {
+                        return width;
+                    }
+                })
+                .attr("width", function (d) {
+                    return 0;
+                });
+        var history_item = d3.select(".drag_history").selectAll(".history_item").data(index_arr);
+        history_item.enter().append("div").attr("class", "historydiv").append("input").attr("class", "history_item").attr("type", "button").attr("value", function (d, i) {
+            return d.index0 + " - " + d.index1;
+        }).on("click", historyclick);
+        history_item.exit().remove();
+        donut_svgs = d3.select(".secondrow").selectAll("svg").data(donutDataset(current_dataset), function (d) {
+            return d.index;
+        });
+        donut_svgs.exit().remove();
+        donutsvgOperation();
+    }function mousedownf(d) {
+        up = false;
+        streamgraph_svg.style("cursor", "ew-resize");
+        downx = d3.mouse(this)[0];
+        downy = d3.mouse(this)[1];
+        rect.style("fill-opacity", opacity_rect).attr("x", downx).attr("width", 0);
+    }
+    function mouseupf(d) {
+        up = true;
+        index0 = Math.floor(x.invert(rect.attr("x")));
+        index1 = Math.ceil(x.invert(parseInt(rect.attr("x")) + parseInt(rect.attr("width"))));
+
+        current_dataset = current_dataset.slice(index0, index1);
+        streamgraph_svg.style("cursor", "default");
+        rect.style("fill-opacity", 0).attr("width", 0);
+        if (current_dataset.length > 1) {
+            index_arr.push({
+                index0: index0 + index_arr[index_arr.length - 1].index0,
+                index1: index1 + index_arr[index_arr.length - 1].index0,
+                index: index_arr.length
+            });
+            //here starts the animation
+            transition();
+        }
+    }
+    function mousemovef(d) {
+        if (!up) {
+            rect.attr("x", Math.min(downx, d3.mouse(this)[0])).attr("width", Math.abs(downx - d3.mouse(this)[0]));
+        }
+    }
+
+    var streamgraph_svg = d3.select("body").append("div").attr("class", "wrapper").append("div").attr("class", "content")
+            .append("div").attr("class", "firstrow").append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    streamgraph_svg.on("mousedown", mousedownf);
+    streamgraph_svg.on("mouseup", mouseupf);
+    streamgraph_svg.on("mousemove", mousemovef);
+
+    //vis type
+    area = d3.svg.area()
+            .interpolate('cardinal')
+            .x(function (d, i) {
+                return x(i);
+            })
+            .y0(function (d) {
+                return y(d.y0);
+            })
+            .y1(function (d) {
+                return y(d.y0 + d.y);
+            });
+    var stack = d3.layout.stack().offset("wiggle");
+    function data2layer(d,method) {
+        var n0 = d.length;
+        var result = d3.range(m);
+        for (var j = 0; j < m; j++) {
+            result[j] = d3.range(n0);
+        }
+        for (var i = 0; i < n0; i++) {
+            for (var j = 0; j < m; j++) {
+                result[j][i] = {y0: 0, x: i, y: method(parseFloat(d[i][factors[j]]))};
+            }
+        }
+//        console.dir(result);
+        return stack(result);
+    }
+    function dataedge(data) {
+        var data_edge = [];
+        var temp_quality = 0;
+        var j = 0, i = 0;
+        for (; i < data.length; i++) {
+            if (temp_quality == parseInt(data[i].quality)) {
+            } else {
+                data_edge.push({quality: data[i].quality, begins_at: i});
+                if (j > 0) {
+                    data_edge[j - 1].ends_at = i;
+                }
+                temp_quality = parseInt(data[i].quality);
+                j++;
+            }
+        }
+        data_edge[j - 1].ends_at = i;
+        return data_edge;
+    }
+    function draw(data) {
+        data.forEach(function (d, i) {
+            d.index = i;
+        })
+        current_dataset = data;
+        index_arr = [{index0: 0, index1: data.length, index: 0}];
+        n = data.length; // number of samples per layer
+        m = factors.length // number of layers
+        ;
+        var data_edge = dataedge(data);
+        layers = data2layer(data,datasmooth);
+        color_quality.domain(data_edge.map(function (obj) {
+            return obj.quality;
+        }));
+
+        x = d3.scale.linear()
+                .range([0, width])
+                .domain([0, n]);
+
+        y = d3.scale.linear()
+                .domain([0, d3.max(layers, function (layer) {
+                    return d3.max(layer, function (d) {
+                        return d.y0 + d.y;
+                    });
+                })])
+                .range([height, 0]);
+
+        streamgraph_svg.selectAll(".backgroundrect").data(data_edge, function (d) {
+            return d.quality;
+        }).enter().append("rect")
+                .attr("x", function (d) {
+                    return x(d.begins_at);
+                })
+                .attr("width", function (d) {
+                    return x(d.ends_at - d.begins_at);
+                })
+                .attr("class", "backgroundrect")
+                .attr("height", height)
+                .style("fill", function (d) {
+                    return color_quality(d.quality);
+                })
+                .style("fill-opacity", opacity)
+        ;
+
+        streamgraph_svg.selectAll(".streampath")
+                .data(layers)
+                .enter().append("path")
+                .attr("class", "streampath")
+                .attr("d", function (d) {
+                    return area(d);
+                })
+                .style("fill", function (d, i) {
+                    return color_factor(i);
+                });
+        rect = streamgraph_svg.append("rect").attr("height", height).attr("width", 30).style("fill", "yellow").style("fill-opacity", 0);
+        var controller = d3.select(".controller")[0][0] ? d3.select(".controller") : d3.select(".wrapper").append("div").attr("class", "controller");
+        var donutarea = controller.append("div").attr("class", "donutarea");
+        var checkboxarea = donutarea.append("div").attr("class", "checkboxarea");
+        checkboxarea.selectAll(".checkb").data(factors)
+                .enter().append("div").attr("class", "checkb")
+                .append('label')
+                .attr('for', function (d, i) {
+                    return 'a' + i;
+                })
+                .append("input")
+                .attr("checked", true)
+                .attr("type", "checkbox")
+                .attr("id", function (d, i) {
+                    return 'a' + i;
+                }).attr("onClick", "checkbox_click(this)")
+        ;
+
+        var factorarea = donutarea.select(".factorarea")[0][0] ? donutarea.select(".factorarea") : donutarea.append("div").attr("class", "factorarea");
+        var factor_legend = factorarea.append("svg").attr("height", "220").attr("width", "120")
+                .selectAll(".factor_legend")
+                .data(factors)
+                .enter().append("g").attr("class", ".factor_legend")
+                .attr("transform", function (d, i) {
+                    return "translate(0," + i * 20 + ")";
+                });
+
+        factor_legend.append("rect")
+                .attr("width", 18)
+                .attr("height", 18)
+                .style("fill", function (d,i){
+                    return color_factor(i);
+                });
+
+        factor_legend.append("text")
+                .attr("x", 24)
+                .attr("y", 9)
+                .attr("dy", ".35em")
+                .text(function (d) {
+                    return d;
+                });
+
+        var labelarea = controller.select(".labelarea")[0][0] ? controller.select(".labelarea") : controller.append("div").attr("class", "labelarea");
+
+        var legend = labelarea.append("svg").attr("height", "60").attr("width", "200")
+                .selectAll("g")
+                .data(color_quality.domain().filter(function (d, i) {
+                    return i < data_edge.length;
+                }))
+                .enter().append("g")
+                .attr("transform", function (d, i) {
+                    return "translate(" + i * 26 + ",0)";
+                });
+
+        legend.append("rect")
+                .attr("width", 24)
+                .attr("height", 24)
+                .style("fill", function (d) {
+                    return color_quality(d);
+                })
+                .style("fill-opacity", opacity);
+
+        legend.append("text")
+                .attr("x", 9)
+                .attr("y", 32)
+                .attr("dy", ".35em")
+                .text(function (d) {
+                    return d;
+                });
+        labelarea.append("div").attr("class", "drag_history").selectAll(".history_item").data(index_arr)
+                .enter().append("div").attr("class", "historydiv").append("input").attr("class", "history_item").attr("type", "button").attr("value", function (d) {
+            return d.index0 + " - " + d.index1;
+        }).on("click", historyclick);
+
+        var secondrow = d3.select(".content").append("div").attr("class", "secondrow");
+
+        donut_svgs = secondrow.selectAll("svg")
+                .data(donutDataset(data), function (d) {
+                    return d.index;
+                });
+        donutsvgOperation();
+    }
+
+    function donutsvgOperation() {
+        var graphs = donut_svgs.enter().append("svg")
+                .attr("width", radius * 2)
+                .attr("height", radius * 2)
+                .append("g")
+                .attr("transform", "translate(" + radius + "," + radius + ")");
+        paths = graphs.selectAll(".arc")
+                .data(function (d) {
+                    return pie(d.numbers);
+                });
+        paths.enter().append("path")
+                .attr("class", "arc")
+                .attr("d", arc)
+                .each(function (d) {
+                    this._current = d;
+                })
+                .style("fill", function (d,i) {
+                    return color_factor(i);
+                });
+        paths.on("mouseover", mouseoverPath);
+        //replace text with circle
+        /*
+         donut_svgs.append("text")
+         .attr("dy", ".35em")
+         .style("text-anchor", "middle")
+         .text(function (d) {
+         return d.quality;
+         });
+         */
+        graphs.append("circle")
+                .attr("r", radius - 30).style("fill", function (d) {
+            return color_quality(d.quality);
+        });
+    }
+    function donutDataset(data) {
+        var donut_dataset = data.filter(function (d, i) {
+            if (data.length > displaymax) {
+                return i < displaymax;
+            }
+            else return true;
+        });
+        donut_dataset.forEach(function (d) {
+            d.numbers = factors.map(function (name, i) {
+                return {key: name, value: +d[name], index: i};
+            });
+        });
+        return donut_dataset;
+    }
+    function mouseoverPath() {
+//        console.dir(d3.mouse(this));
+//        console.dir(this);this=path
+    }
+    var excluded = [];
+    function checkbox_click(obj) {
+        if (obj.checked) {
+            for (var i = 0; i < excluded.length; i++) {
+                if (obj.__data__ == excluded[i]) {
+                    excluded.splice(i, 1);
+                    break;
+                }
+            }
+        } else {
+            excluded.push(obj.__data__);
+        }
+        pie.value(function (d) {
+            return excluded.indexOf(d.key) >= 0 ? 0 : d.value;
+        }); // change the value function
+        paths = donut_svgs.selectAll(".arc")
+                .data(function (d) {
+                    return pie(d.numbers);
+                }); // compute the new angles
+        paths.transition().duration(750).attrTween("d", arcTween); // redraw the arcs
+    }
+    function arcTween(a) {
+        var i = d3.interpolate(this._current, a);
+        this._current = i(0);
+        return function (t) {
+            return arc(i(t));
+        };
+    }
+    function historyclick() {
+        current_dataset = dataset.slice(this.__data__.index0, this.__data__.index1);
+        index_arr = index_arr.slice(0, this.__data__.index + 1);
+        transition();
+    }
+
+    var arc = d3.svg.arc()
+            .outerRadius(radius)
+            .innerRadius(radius - 30);
+
+    var pie = d3.layout.pie()
+            .sort(function (a, b) {
+                return b.index - a.index;
+            })
+            .value(function (d) {
+                return datasmooth(d.value);
+            });
+</script>
+</body>
+</html>

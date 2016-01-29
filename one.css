@@ -1,0 +1,90 @@
+
+body {
+    font: 10px sans-serif;
+}
+
+svg {
+    margin: 5px;
+}
+
+.axis path, .axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+}
+
+.x.axis path {
+    display: none;
+}
+
+.firstrow {
+    float: left;
+}
+
+.content {
+    width: 1640px;
+    float: left;
+}
+
+.line {
+    fill: none;
+    stroke: steelblue;
+    stroke-width: 1.5px;
+}
+
+.layer {
+    stroke: none;
+}
+
+.wrapper {
+    position: relative;
+}
+
+.controller {
+    right:0px;
+    top:20px;
+    float: right;
+    position:fixed;
+}
+
+.donutarea {
+    height: 220px;
+    position: relative;
+}
+
+.labelarea {
+    padding: 18px 0 0 0;
+    clear: both;
+}
+
+.checkboxarea {
+    float: left;
+    width: 20px;
+    margin: 4px 0 0 0;
+}
+
+.checkb {
+    height: 20px;
+    width: 20px;
+}
+
+.factorarea {
+    height: 220px;
+    float: left;
+}
+
+.svgg {
+    cursor: ew-resize;
+}
+
+.drag_history {
+}
+
+.historydiv {
+    width: 200px;
+    margin: 10px;
+}
+
+.history_item {
+    width: 120px;
+}
