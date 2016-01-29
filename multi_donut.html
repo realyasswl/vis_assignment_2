@@ -29,12 +29,16 @@
 
     .checkboxarea {
         margin: 9px -6px 0px 0px;
-        /*widows:24px;*/
         float: left;
     }
 
     .labelarea {
         float: left;
+    }
+
+    .legend {
+        width: 240px;
+        height: 240px;
     }
 
     input {
@@ -46,7 +50,7 @@
 <script src="d3/d3.js"></script>
 <script>
 
-    var radius = 120,
+    var radius = 80,
             padding = 10;
 
     //    var color = d3.scale.ordinal()
@@ -58,7 +62,7 @@
     //                "#a05d56",
     //                "#d0743c",
     //                "#ff8c00"]);
-    var color = d3.scale.category20c();
+    var color_factor = d3.scale.category20c();
 
     var arc = d3.svg.arc()
             .outerRadius(radius)
@@ -71,15 +75,14 @@
             .value(function (d) {
                 return d.value;
             });
-    var file = "wine_white.csv";
-    var dsv = d3.dsv(";", "text/plain");
     var dataset;
-    var paths, svgs;
+    var paths, donut_svgs;
+    var file = "wine_red.csv";
+    var dsv = d3.dsv(";", "text/plain");
     dsv(file, function (error, data) {
-//    d3.csv("data.csv", function (error, data) {
         if (error) throw error;
 
-        color.domain(d3.keys(data[0]).filter(function (key) {
+        color_factor.domain(d3.keys(data[0]).filter(function (key) {
             return key !== "quality";
         }));
         dataset = data.sort(function (a, b) {
@@ -87,18 +90,21 @@
         }).filter(function (d, i) {
             return i < 100;
         });
+        draw();
+    });
+    function mouseoverPath() {
+//        console.dir(d3.mouse(this));
+//        console.dir(this);this=path
+    }
+    function draw() {
         dataset.forEach(function (d) {
-            d.numbers = color.domain().map(function (name, i) {
+            d.numbers = color_factor.domain().map(function (name, i) {
                 return {key: name, value: +d[name], index: i};
             });
         });
-        draw();
-    });
-    function draw() {
-        var controller = d3.select("body").append("div").attr("class", "controller");
+        var controller = d3.select("body").select(".controller");
         var checkboxarea = controller.append("div").attr("class", "checkboxarea");
-
-        checkboxarea.selectAll("input").data(color.domain().slice())
+        checkboxarea.selectAll(".checkb").data(color_factor.domain().slice())
                 .enter()
                 .append("div").attr("class", "checkb")
                 .append('label')
@@ -113,41 +119,42 @@
                 }).attr("onClick", "checkbox_click(this)")
         ;
         var labelarea = controller.append("div").attr("class", "labelarea");
-        var legend = d3.select(".labelarea").append("svg")
+        var factor_legend = d3.select(".labelarea").append("svg")
                 .attr("class", "legend")
-                .attr("width", radius * 2)
-                .attr("height", radius * 2)
-                .selectAll("g")
-                .data(color.domain().slice())
-                .enter().append("g")
+                //                .attr("width", )
+                //                .attr("height", 240)
+                .selectAll(".factor_legend")
+                .data(color_factor.domain())
+                .enter().append("g").attr("class",".factor_legend")
                 .attr("transform", function (d, i) {
                     return "translate(0," + i * 20 + ")";
                 });
 
-        legend.append("rect")
+        factor_legend.append("rect")
                 .attr("width", 18)
                 .attr("height", 18)
-                .style("fill", color);
+                .style("fill", color_factor);
 
-        legend.append("text")
+        factor_legend.append("text")
                 .attr("x", 24)
                 .attr("y", 9)
                 .attr("dy", ".35em")
                 .text(function (d) {
                     return d;
                 });
-        d3.select("body").append("div").attr("class", "container");
-        svgs = d3.select(".container").selectAll("svg")
+        donut_svgs = d3.select(".container").selectAll("svg")
                 .data(dataset)
                 .enter().append("svg")
                 .attr("width", radius * 2)
                 .attr("height", radius * 2)
                 .append("g")
                 .attr("transform", "translate(" + radius + "," + radius + ")");
-        paths = svgs.selectAll(".arc")
+        paths = donut_svgs.selectAll(".arc")
                 .data(function (d) {
+                    console.dir(d);
                     return pie(d.numbers);
                 });
+
 
         paths.enter().append("path")
                 .attr("class", "arc")
@@ -156,10 +163,10 @@
                     this._current = d;
                 })
                 .style("fill", function (d) {
-                    return color(d.data.key);
+                    return color_factor(d.data.key);
                 });
-
-        svgs.append("text")
+        paths.on("mouseover", mouseoverPath);
+        donut_svgs.append("text")
                 .attr("dy", ".35em")
                 .style("text-anchor", "middle")
                 .text(function (d) {
@@ -182,33 +189,32 @@
         pie.value(function (d) {
             return excluded.indexOf(d.key) >= 0 ? 0 : d.value;
         }); // change the value function
-        paths = svgs.selectAll(".arc")
+        paths = donut_svgs.selectAll(".arc")
                 .data(function (d) {
                     return pie(d.numbers);
                 }); // compute the new angles
         paths.transition().duration(750).attrTween("d", arcTween); // redraw the arcs
     }
     function arcTween(a) {
-//        console.dir(this._current);
-//        console.dir(a);
         var i = d3.interpolate(this._current, a);
         this._current = i(0);
         return function (t) {
             return arc(i(t));
         };
     }
-
-    function prepareData(d) {
-        //transfer Object to array, automatically put values for each key in d into data_array
-        var data_array = [];
-        color.domain().map().forEach(function (prop) {
-            data_array.push({key: prop.key, value: d[prop.key], index: prop.index});
-        });
-        console.dir(d.numbers);
-        console.dir(data_array);
-        return [data_array];
-//        return d.wrapped;
-    }
+    /*
+     function prepareData(d) {
+     //transfer Object to array, automatically put values for each key in d into data_array
+     var data_array = [];
+     color_factor.domain().map().forEach(function (prop) {
+     data_array.push({key: prop.key, value: d[prop.key], index: prop.index});
+     });
+     console.dir(d.numbers);
+     console.dir(data_array);
+     return [data_array];
+     //        return d.wrapped;
+     }
+     */
 </script>
 <script type="text/javascript" src="js/jquery-2.2.0.js"></script>
 <script>
@@ -221,4 +227,8 @@
 </head>
 <body>
 <div id="header"></div>
+<div class="controller">
+
+</div>
+<div class="container"></div>
 </body>
