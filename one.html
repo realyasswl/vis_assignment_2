@@ -14,37 +14,49 @@
                 dataset = dat.sort(function (a, b) {
                     return a["quality"] - b["quality"]
                 }).filter(function (d, i) {
-                    return i<8;
+                    //limit the data size, test and develop use
+                    return i < 5;
 //                    return true;
                 });
                 factors = d3.keys(dat[0]).filter(function (key) {
                     return key !== "quality";
                 });
-//                color_factor.domain(factors);
+                factors_remain = factors;
+                color_factor.domain(factors);
                 draw(dataset);
             }
     );
-    var datasmooth=function (d){
-        return Math.sqrt(d);
-//        return d;
-    };
+    var dsindex = 0;
+    var datasmoothlist = [{
+                display: "Sqrt", func: function (d) {
+                    return Math.sqrt(d);
+                }
+            }, {
+                display: "Original", func: function (d) {
+                    return d;
+                }
+            }
+            ]
+            ;
 
+    var datasmooth = datasmoothlist[dsindex].func;
+    function datasmoothareaclick() {
+        dsindex = datasmoothlist.length - dsindex - 1;
+        datasmooth = datasmoothlist[dsindex].func;
+        d3.select("#datasmoothbutton").attr("value", function () {
+            return datasmoothlist[dsindex].display;
+        });
+        donutPathOperations();
+        streamPathsOperations();
+    }
     function transition() {
-        x.domain([0, current_dataset.length]);
-        d3.selectAll(".streampath")
-                .data(function () {
-                    return layers = data2layer(current_dataset,datasmooth);
-                })
-                .transition()
-                .duration(1200)
-                .attr("d", area);
-
+        streamPathsOperations();
         var backrect = d3.selectAll(".backgroundrect").data(dataedge(current_dataset), function (d) {
             return d.quality;
         });
 
         backrect.transition()
-                .duration(1200)
+                .duration(trans_interval)
                 .attr("x", function (d) {
                     return x(d.begins_at);
                 })
@@ -52,7 +64,7 @@
                     return x(d.ends_at - d.begins_at);
                 });
         backrect.exit().transition()
-                .duration(1200)
+                .duration(trans_interval)
                 .attr("x", function (d, i) {
                     if (d.ends_at <= index0) {
                         return 0;
@@ -73,8 +85,14 @@
             return d.index;
         });
         donut_svgs.exit().remove();
-        donutsvgOperation();
-    }function mousedownf(d) {
+        donutsvgOperations();
+
+        x.domain([index_arr[index_arr.length - 1].index0, index_arr[index_arr.length - 1].index1]);
+        streamgraph_svg.transition()
+                .duration(trans_interval);
+        streamgraph_svg.select(".x.axis").call(xAxis);
+    }
+    function mousedownf(d) {
         up = false;
         streamgraph_svg.style("cursor", "ew-resize");
         downx = d3.mouse(this)[0];
@@ -86,13 +104,15 @@
         index0 = Math.floor(x.invert(rect.attr("x")));
         index1 = Math.ceil(x.invert(parseInt(rect.attr("x")) + parseInt(rect.attr("width"))));
 
-        current_dataset = current_dataset.slice(index0, index1);
+        current_dataset = dataset.slice(index0, index1+1);
         streamgraph_svg.style("cursor", "default");
         rect.style("fill-opacity", 0).attr("width", 0);
         if (current_dataset.length > 1) {
             index_arr.push({
-                index0: index0 + index_arr[index_arr.length - 1].index0,
-                index1: index1 + index_arr[index_arr.length - 1].index0,
+//                index0: index0 + index_arr[index_arr.length - 1].index0,
+//                index1: index1 + index_arr[index_arr.length - 1].index0,
+                index0: index0,
+                index1: index1,
                 index: index_arr.length
             });
             //here starts the animation
@@ -128,19 +148,23 @@
                 return y(d.y0 + d.y);
             });
     var stack = d3.layout.stack().offset("wiggle");
-    function data2layer(d,method) {
+    function data2layer(d, method) {
         var n0 = d.length;
-        var result = d3.range(m);
+        var result = d3.range(m).map(function (d) {
+            return d3.range(n0);
+        });
+        var excluded = false;
         for (var j = 0; j < m; j++) {
-            result[j] = d3.range(n0);
-        }
-        for (var i = 0; i < n0; i++) {
-            for (var j = 0; j < m; j++) {
-                result[j][i] = {y0: 0, x: i, y: method(parseFloat(d[i][factors[j]]))};
+            excluded = (excluded_id.indexOf(j) >= 0);
+            for (var i = 0; i < n0; i++) {
+                result[j][i] = {y0: 0, x: i, y: excluded ? 0 : method(parseFloat(d[i][factors[j]]))};
             }
+            excluded = false;
         }
-//        console.dir(result);
         return stack(result);
+    }
+    function streampathover() {
+        displayFactorAt(d3.mouse(this), factors[parseInt(this.id)], Math.floor(x.invert(d3.mouse(this)[0])));
     }
     function dataedge(data) {
         var data_edge = [];
@@ -160,6 +184,7 @@
         data_edge[j - 1].ends_at = i;
         return data_edge;
     }
+    var xAxis, yAxis;
     function draw(data) {
         data.forEach(function (d, i) {
             d.index = i;
@@ -170,7 +195,7 @@
         m = factors.length // number of layers
         ;
         var data_edge = dataedge(data);
-        layers = data2layer(data,datasmooth);
+        layers = data2layer(data, datasmooth);
         color_quality.domain(data_edge.map(function (obj) {
             return obj.quality;
         }));
@@ -186,6 +211,22 @@
                     });
                 })])
                 .range([height, 0]);
+        xAxis = d3.svg.axis()
+                .scale(x)
+//                .tickFormat(d3.format("d"))
+                .orient("top");
+
+        yAxis = d3.svg.axis()
+                .scale(y)
+                .orient("left");
+        streamgraph_svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0,0)")
+                .call(xAxis);
+
+        streamgraph_svg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis);
 
         streamgraph_svg.selectAll(".backgroundrect").data(data_edge, function (d) {
             return d.quality;
@@ -204,16 +245,20 @@
                 .style("fill-opacity", opacity)
         ;
 
-        streamgraph_svg.selectAll(".streampath")
+        var streampath = streamgraph_svg.selectAll(".streampath")
                 .data(layers)
-                .enter().append("path")
-                .attr("class", "streampath")
+                .enter().append("path");
+        streampath.attr("class", "streampath")
                 .attr("d", function (d) {
                     return area(d);
                 })
+                .attr("id", function (d, i) {
+                    return i;
+                })
                 .style("fill", function (d, i) {
-                    return color_factor(i);
+                    return pathColor(i);
                 });
+        streampath.on("mousemove", streampathover);
         rect = streamgraph_svg.append("rect").attr("height", height).attr("width", 30).style("fill", "yellow").style("fill-opacity", 0);
         var controller = d3.select(".controller")[0][0] ? d3.select(".controller") : d3.select(".wrapper").append("div").attr("class", "controller");
         var donutarea = controller.append("div").attr("class", "donutarea");
@@ -244,8 +289,8 @@
         factor_legend.append("rect")
                 .attr("width", 18)
                 .attr("height", 18)
-                .style("fill", function (d,i){
-                    return color_factor(i);
+                .style("fill", function (d, i) {
+                    return color_factor(d);
                 });
 
         factor_legend.append("text")
@@ -255,7 +300,11 @@
                 .text(function (d) {
                     return d;
                 });
-
+        var datasmootharea = controller.select(".datasmootharea")[0][0] ? controller.select(".datasmootharea") : controller.append("div").attr("class", "datasmootharea");
+        datasmootharea.append("label").attr();
+        datasmootharea.append("input").attr("type", "button").attr("id", "datasmoothbutton").attr("value", function () {
+            return datasmoothlist[dsindex].display;
+        }).on("click", datasmoothareaclick);
         var labelarea = controller.select(".labelarea")[0][0] ? controller.select(".labelarea") : controller.append("div").attr("class", "labelarea");
 
         var legend = labelarea.append("svg").attr("height", "60").attr("width", "200")
@@ -294,10 +343,10 @@
                 .data(donutDataset(data), function (d) {
                     return d.index;
                 });
-        donutsvgOperation();
+        donutsvgOperations();
     }
 
-    function donutsvgOperation() {
+    function donutsvgOperations() {
         var graphs = donut_svgs.enter().append("svg")
                 .attr("width", radius * 2)
                 .attr("height", radius * 2)
@@ -313,8 +362,8 @@
                 .each(function (d) {
                     this._current = d;
                 })
-                .style("fill", function (d,i) {
-                    return color_factor(i);
+                .style("fill", function (d, i) {
+                    return color_factor(d.data.key);
                 });
         paths.on("mouseover", mouseoverPath);
         //replace text with circle
@@ -329,7 +378,11 @@
         graphs.append("circle")
                 .attr("r", radius - 30).style("fill", function (d) {
             return color_quality(d.quality);
-        });
+        }).style("fill-opacity", opacity);
+    }
+
+    function pathColor(j) {
+        return color_factor(factors_remain[j]);
     }
     function donutDataset(data) {
         var donut_dataset = data.filter(function (d, i) {
@@ -350,26 +403,66 @@
 //        console.dir(this);this=path
     }
     var excluded = [];
+    var excluded_id = [];
+    var factors_remain = factors;
     function checkbox_click(obj) {
         if (obj.checked) {
-            for (var i = 0; i < excluded.length; i++) {
-                if (obj.__data__ == excluded[i]) {
-                    excluded.splice(i, 1);
-                    break;
-                }
-            }
+            var i = excluded.indexOf(obj.__data__);
+            excluded.splice(i, 1);
+            excluded_id.splice(i, 1);
         } else {
             excluded.push(obj.__data__);
+            excluded_id.push(parseInt(obj.id.substring(1)));
         }
+        factors_remain = factors.filter(function (d) {
+            return excluded.indexOf(d) < 0;
+        });
+
+        donutPathOperations();
+        streamPathsOperations();
+    }
+
+    function donutPathOperations() {
         pie.value(function (d) {
-            return excluded.indexOf(d.key) >= 0 ? 0 : d.value;
+            return excluded.indexOf(d.key) >= 0 ? 0 : datasmooth(d.value);
+            ;
         }); // change the value function
-        paths = donut_svgs.selectAll(".arc")
+        donut_svgs.selectAll(".arc")
                 .data(function (d) {
                     return pie(d.numbers);
-                }); // compute the new angles
-        paths.transition().duration(750).attrTween("d", arcTween); // redraw the arcs
+                }).transition().duration(trans_interval).attrTween("d", arcTween); // redraw the arcs
     }
+
+
+    function streamPathsOperations() {
+        var templayer = data2layer(current_dataset, datasmooth);
+        x.domain([0, current_dataset.length]);
+        y.domain([0, d3.max(templayer, function (layer) {
+            return d3.max(layer, function (d) {
+                return d.y0 + d.y;
+            });
+        })]);
+
+        xAxis.scale(x);
+
+
+        yAxis.scale(y);
+//        streamgraph_svg.select(".backgroundrect").attr();
+
+        var selected = d3.selectAll(".streampath")
+                .data(function () {
+                    return layers = templayer;
+                });
+
+        selected.transition()
+                .duration(trans_interval)
+                .attr("d", area);
+        streamgraph_svg.transition()
+                .duration(trans_interval);
+        streamgraph_svg.select(".y.axis").call(yAxis);
+
+    }
+
     function arcTween(a) {
         var i = d3.interpolate(this._current, a);
         this._current = i(0);
@@ -378,7 +471,7 @@
         };
     }
     function historyclick() {
-        current_dataset = dataset.slice(this.__data__.index0, this.__data__.index1);
+        current_dataset = dataset.slice(this.__data__.index0, this.__data__.index1+1);
         index_arr = index_arr.slice(0, this.__data__.index + 1);
         transition();
     }
@@ -394,6 +487,12 @@
             .value(function (d) {
                 return datasmooth(d.value);
             });
+
+    function displayFactorAt(coordinate, key, global_index) {
+        console.dir(coordinate);
+        console.dir(key);
+        console.dir(global_index);
+    }
 </script>
 </body>
 </html>

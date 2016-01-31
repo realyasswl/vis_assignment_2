@@ -14,7 +14,7 @@ svg {
 }
 
 .x.axis path {
-    display: none;
+    /*display: none;*/
 }
 
 .firstrow {
@@ -42,7 +42,7 @@ svg {
 
 .controller {
     right:0px;
-    top:20px;
+    top:40px;
     float: right;
     position:fixed;
 }
@@ -87,4 +87,11 @@ svg {
 
 .history_item {
     width: 120px;
+}
+
+.datasmootharea{
+    margin:20px 0 0 0;
+}
+.secondrow{
+    margin:0 0 0 30px;
 }
