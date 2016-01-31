@@ -21,10 +21,10 @@
 var color_factor = d3.scale.category20b();
 
 var margin = {
-        top: 5,
-        right: 5,
-        bottom: 5,
-        left: 5
+        top: 20,
+        right: 30,
+        bottom: 20,
+        left: 30
     },
     width = 1640 - margin.left - margin.right,//the width of the streamgraph
     height = 600 - margin.top - margin.bottom,//the height of the streamgraph
@@ -50,3 +50,5 @@ var dataset, layers;
 var drag_history;
 var rect,//the drag rectangle
     x, y, area;
+
+var trans_interval=1000;
