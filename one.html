@@ -15,8 +15,8 @@
                     return a["quality"] - b["quality"]
                 }).filter(function (d, i) {
                     //limit the data size, test and develop use
-                    return i < 5;
-//                    return true;
+//                    return i < 5;
+                    return true;
                 });
                 factors = d3.keys(dat[0]).filter(function (key) {
                     return key !== "quality";
@@ -202,7 +202,7 @@
 
         x = d3.scale.linear()
                 .range([0, width])
-                .domain([0, n]);
+                .domain([0, n-1]);
 
         y = d3.scale.linear()
                 .domain([0, d3.max(layers, function (layer) {
@@ -436,7 +436,7 @@
 
     function streamPathsOperations() {
         var templayer = data2layer(current_dataset, datasmooth);
-        x.domain([0, current_dataset.length]);
+        x.domain([0, current_dataset.length-1]);
         y.domain([0, d3.max(templayer, function (layer) {
             return d3.max(layer, function (d) {
                 return d.y0 + d.y;
