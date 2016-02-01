@@ -11,7 +11,8 @@
 </head>
 <body>
 <script>
-    dsv(file, function (error, dat) {
+    var files=["wine_red.csv","wine_white.csv"];
+    dsv(files[0], function (error, dat) {
                 if (error) throw error;
 
                 dataset = dat.sort(function (a, b) {
@@ -131,11 +132,11 @@
     function mousemovef(d) {
         if (!up) {
             rect.attr("x", Math.min(downx, d3.mouse(this)[0])).attr("width", Math.abs(downx - d3.mouse(this)[0]));
-            index0 =index_arr[index_arr.length - 1].index0+ Math.floor(x.invert(rect.attr("x")));
-            index1 =index_arr[index_arr.length - 1].index0+ Math.ceil(x.invert(parseInt(rect.attr("x")) + parseInt(rect.attr("width"))));
+            index0 = index_arr[index_arr.length - 1].index0 + Math.floor(x.invert(rect.attr("x")));
+            index1 = index_arr[index_arr.length - 1].index0 + Math.ceil(x.invert(parseInt(rect.attr("x")) + parseInt(rect.attr("width"))));
             donut_svgs = d3.select(".secondrow").selectAll(".donutsvg_solid,.donutsvg_none");//select either one of these two css choosers
             donut_svgs.attr("class", function (d, i) {
-                return d.index >= index0 && d.index <= index1 ? "donutsvg_solid" :  "donutsvg_none";
+                return d.index >= index0 && d.index <= index1 ? "donutsvg_solid" : "donutsvg_none";
             });
         }
     }
@@ -205,13 +206,13 @@
         return data_edge;
     }
     var xAxis, yAxis;
-    var qualityMin=10;
-    var qualityMax=0;
+    var qualityMin = 10;
+    var qualityMax = 0;
     function draw(data) {
         data.forEach(function (d, i) {
             d.index = i;
-            qualityMin=Math.min(qualityMin, d.quality);
-            qualityMax=Math.max(qualityMin, d.quality);
+            qualityMin = Math.min(qualityMin, d.quality);
+            qualityMax = Math.max(qualityMin, d.quality);
         });
         console.dir(data);
         current_dataset = data;
@@ -286,6 +287,10 @@
         streampath.on("mousemove", streampathover);
         rect = streamgraph_svg.append("rect").attr("height", height).attr("width", 30).style("fill", "yellow").style("fill-opacity", 0);
         var controller = d3.select(".controller")[0][0] ? d3.select(".controller") : d3.select(".wrapper").append("div").attr("class", "controller");
+//        controller.append("select").selectAll("option").data(files).enter().append("option").attr("value", function (d) {
+//            console.dir(d);
+//            return d;
+//        });
         var donutarea = controller.append("div").attr("class", "donutarea");
         var checkboxarea = donutarea.append("div").attr("class", "checkboxarea");
         checkboxarea.selectAll(".checkb").data(factors)
@@ -303,7 +308,7 @@
         ;
 
         var factorarea = donutarea.select(".factorarea")[0][0] ? donutarea.select(".factorarea") : donutarea.append("div").attr("class", "factorarea");
-        var factor_legend = factorarea.append("svg").attr("height", "220").attr("width", "120").style("padding", "5px")
+        var factor_legend = factorarea.append("svg").attr("height", "220").attr("width", "160").style("padding", "5px 1px 5px 1px")
                 .selectAll(".factor_legend")
                 .data(factors)
                 .enter().append("g").attr("class", ".factor_legend")
@@ -333,15 +338,17 @@
 
         var overlay_checkboxes = controller.append("div").attr("class", "overlay_checkboxes");
         overlay_checkboxes.append('label')
+                .text("Enable distribution bar-chart")
                 .attr('for', "enableoverlay")
                 .append("input")
-//                .attr("checked", false)
+                //                .attr("checked", false)
                 .attr("type", "checkbox")
                 .attr("id", "enableoverlay")
                 .attr("onClick", "enableoverlay(this)");
-
-        overlay_checkboxes.append("input").attr("id","barCountRange").attr("type","range").attr("min",30).attr("max",100).attr("disabled",true);
-
+        var inputform = overlay_checkboxes.append("form");
+        inputform.append("input").attr("id", "barCountRange").attr("name", "barCountRange").attr("type", "range").attr("min", 30).attr("max", 100).attr("disabled", true);
+//        inputform.append("input").attr("id", "amount").attr("for", "barCountRange");
+//        inputform.on("input", forminput(this));
         var labelarea = controller.select(".labelarea")[0][0] ? controller.select(".labelarea") : controller.append("div").attr("class", "labelarea");
 
         var legend = labelarea.append("svg").attr("height", "60").attr("width", "200")
@@ -406,7 +413,7 @@
                 .style("fill", function (d, i) {
                     return color_factor(d.data.key);
                 });
-        paths.on("mouseover", mouseoverPath);
+        paths.on("mousemove", mouseoverPath);
         //replace text with circle
         /*
          donut_svgs.append("text")
@@ -441,9 +448,10 @@
     }
     function mouseoverPath() {
         if ($("#enableoverlay")[0].checked) {
-            console.dir(this);
+//            console.dir(this);
             d3.select(".overlay").style("display", "inline");
-            displayFactorAt(d3.mouse(this), this.__data__.data.key, this.parentNode.__data__.index);
+            console.dir(d3.select("body"));
+            displayFactorAt(d3.mouse(d3.select("body")[0][0]), this.__data__.data.key, this.parentNode.__data__.index);
         }
     }
     var excluded = [];
@@ -529,33 +537,35 @@
             .value(function (d) {
                 return datasmooth(d.value);
             });
-    var overlayDiv=d3.select("body").append("div").attr("class","overlay");
-    var factorg=overlayDiv.append("svg").attr("class","dissvg").attr("id","factorsvg").append("g");
-    var qualityg=overlayDiv.append("svg").attr("class","dissvg").attr("id","qualitysvg").append("g");
+    var overlayDiv = d3.select("body").append("div").attr("class", "overlay");
+    var factorg = overlayDiv.append("svg").attr("class", "dissvg").attr("id", "factorsvg").append("g");
+    var qualityg = overlayDiv.append("svg").attr("class", "dissvg").attr("id", "qualitysvg").append("g");
 
     function displayFactorAt(coordinate, key, global_index) {
-//        console.dir(coordinate);
+        console.dir(coordinate);
 //        console.dir(key);
 //        console.dir(global_index);
-        var left=coordinate[0]+50+610>1900?coordinate[0]-580:coordinate[0]+50;
-        var top=coordinate[1]+50+424>1000?coordinate[1]-394:coordinate[1]+50;
+        var left = coordinate[0] + 50 + 610 > 1900 ? coordinate[0] - 580 : coordinate[0] + 50;
+        var top = coordinate[1] + 50 + 424 > 1000 ? coordinate[1] - 394 : coordinate[1] + 50;
         d3.select(".overlay")
-                .style("left",left+"px").style("top",top+"px");
-        var wid=240;
-        var hei=320;
-        var factorresult=factorDistribuation(dataset.map(function(d){
+                .style("left", left + "px").style("top", top + "px");
+        var wid = 240;
+        var hei = 320;
+        var factorresult = factorDistribuation(dataset.map(function (d) {
             return d[key];
-        }).sort(function (a,b){
-            return a-b;
-        }),$("#barCountRange")[0].value);
-        var qualityresult=factorDistribuation(dataset.map(function(d){
+        }).sort(function (a, b) {
+            return a - b;
+        }), $("#barCountRange")[0].value);
+        var qualityresult = factorDistribuation(dataset.map(function (d) {
             return d["quality"];
-        }).sort(function (a,b){
-            return a-b;
-        }),qualityMax-qualityMin+1);
+        }).sort(function (a, b) {
+            return a - b;
+        }), qualityMax - qualityMin + 1);
 
-        var w=d3.scale.linear().range([0,wid]).domain([maxarray(factorresult.map(function(d){return d.number;})),0]);
-        var h=d3.scale.linear().range([0,hei]).domain([factorresult[factorresult.length-1].ori,0]);
+        var w = d3.scale.linear().range([0, wid]).domain([maxarray(factorresult.map(function (d) {
+            return d.number;
+        })), 0]);
+        var h = d3.scale.linear().range([0, hei]).domain([factorresult[factorresult.length - 1].ori, factorresult[0].ori]);
 
         var xAxis_overlay = d3.svg.axis().scale(h)
                 .orient("right");
@@ -565,11 +575,11 @@
         factorg.selectAll("g").remove();
         factorg.append("g")
                 .attr("class", "x axis")
-                .attr("transform", "translate("+wid+",0)")
+                .attr("transform", "translate(" + wid + ",0)")
                 .call(xAxis_overlay)
                 .append("text").text(key)
-                .attr("x",0-hei)
-                .attr("y",40)
+                .attr("x", 0 - hei)
+                .attr("y", 40)
                 .attr("transform", "rotate(-90)");
         ;
         factorg.append("g")
@@ -590,10 +600,10 @@
                     return w(d.number);
                 })
                 .attr("width", function (d) {
-                    return  wid-w(d.number);
+                    return wid - w(d.number);
                 })
                 .attr("y", function (d, i) {
-                    return  h(d.ori) - Math.floor(hei / factorresult.length) / 2;
+                    return h(d.ori) - Math.floor(hei / factorresult.length) / 2;
                 })
                 .attr("height", Math.floor(hei / factorresult.length))
                 .style("fill", function () {
@@ -609,27 +619,29 @@
                     return h(factor_value) - 1;
                 })
                 .attr("height", 2)
-                .style("fill","red");
+                .style("fill", "red");
 
 
         qualityg.selectAll("rect").remove();
         qualityg.selectAll("g").remove();
-        w.domain([maxarray(qualityresult.map(function(d){return d.number;})),0]);
-        console.dir(qualityMin);
-        h.domain([qualityMin,qualityMax]);
+        w.domain([maxarray(qualityresult.map(function (d) {
+            return d.number;
+        })), 0]);
+//        console.dir(qualityMin);
+        h.domain([qualityMin, qualityMax]);
 
-         xAxis_overlay = d3.svg.axis().scale(h)
+        xAxis_overlay = d3.svg.axis().scale(h)
                 .orient("left");
         yAxis_overlay = d3.svg.axis().scale(w)
                 .orient("top");
 
         qualityg.append("g")
                 .attr("class", "x axis")
-//                .attr("transform", "translate("+wid+",0)")
+                //                .attr("transform", "translate("+wid+",0)")
                 .call(xAxis_overlay)
                 .append("text").text("quality")
-                .attr("x",0-hei)
-                .attr("y",-40)
+                .attr("x", 0 - hei)
+                .attr("y", -40)
                 .attr("transform", "rotate(-90)");
         ;
         qualityg.append("g")
@@ -650,13 +662,13 @@
                     return 0;
                 })
                 .attr("width", function (d) {
-                    return  wid-w(d.number);
+                    return wid - w(d.number);
                 })
                 .attr("y", function (d, i) {
-                    return  h(d.ori) - Math.floor(hei / qualityresult.length) / 2;
+                    return h(d.ori) - Math.floor(hei / qualityresult.length) / 2;
                 })
                 .attr("height", Math.floor(hei / qualityresult.length))
-                .style("fill", function (d,i) {
+                .style("fill", function (d, i) {
                     return color_quality(d.ori);
                 }).style("fill-opacity", opacity);
         var quality_value = dataset[global_index]["quality"];
@@ -669,7 +681,7 @@
                     return h(quality_value) - 1;
                 })
                 .attr("height", 2)
-                .style("fill","red");
+                .style("fill", "red");
     }
     //we are using a vertical layout, sourceArray should be sorted
     function factorDistribuation(sourceArray, barCount) {
@@ -688,25 +700,29 @@
 //                .domain([0, Math.max(...disResult)]);
 
     }
-    function enableoverlay(obj){
-        console.dir(obj);
-        if(obj.checked){
-            $("#barCountRange")[0].disabled=false;
+    function enableoverlay(obj) {
+//        console.dir(obj);
+        if (obj.checked) {
+            $("#barCountRange")[0].disabled = false;
         } else {
             d3.select(".overlay").style("display", "none");
-            $("#barCountRange")[0].disabled=true;
+            $("#barCountRange")[0].disabled = true;
         }
     }
 
-    function minarray(array){
-        return array.reduce(function (a,b){
-            return Math.min(a,b);
+    function minarray(array) {
+        return array.reduce(function (a, b) {
+            return Math.min(a, b);
         });
     }
-    function maxarray(array){
-        return array.reduce(function (a,b){
-            return Math.max(a,b);
+    function maxarray(array) {
+        return array.reduce(function (a, b) {
+            return Math.max(a, b);
         });
+    }
+    function forminput(obj) {
+        if ($("#barCountRange")[0].disabled)return;
+        $("#amount")[0].value = $("#barCountRange")[0].value;
     }
 </script>
 </body>

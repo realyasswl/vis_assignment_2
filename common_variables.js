@@ -41,7 +41,6 @@ var index_arr;//store the drag history
 var paths, donut_svgs;
 
 var factors;
-var file = "wine_red.csv";
 var dsv = d3.dsv(";", "text/plain");
 var opacity = .6;
 var opacity_rect = .15;
