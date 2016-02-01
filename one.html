@@ -554,7 +554,7 @@
             return a-b;
         }),qualityMax-qualityMin+1);
 
-        var w=d3.scale.linear().range([0,wid]).domain([Math.max(...factorresult.map(function(d){return d.number;})),0]);
+        var w=d3.scale.linear().range([0,wid]).domain([maxarray(factorresult.map(function(d){return d.number;})),0]);
         var h=d3.scale.linear().range([0,hei]).domain([factorresult[factorresult.length-1].ori,0]);
 
         var xAxis_overlay = d3.svg.axis().scale(h)
@@ -614,7 +614,7 @@
 
         qualityg.selectAll("rect").remove();
         qualityg.selectAll("g").remove();
-        w.domain([Math.max(...qualityresult.map(function(d){return d.number;})),0]);
+        w.domain([maxarray(qualityresult.map(function(d){return d.number;})),0]);
         console.dir(qualityMin);
         h.domain([qualityMin,qualityMax]);
 
@@ -673,8 +673,8 @@
     }
     //we are using a vertical layout, sourceArray should be sorted
     function factorDistribuation(sourceArray, barCount) {
-        var max = Math.max(...sourceArray);
-        var min = Math.min(...sourceArray);
+        var max = maxarray(sourceArray);
+        var min = minarray(sourceArray);
         var h = d3.scale.linear().range([min, max])
                 .domain([0, barCount - 1]);
         return d3.range(barCount).map(function (d, i) {
@@ -696,6 +696,17 @@
             d3.select(".overlay").style("display", "none");
             $("#barCountRange")[0].disabled=true;
         }
+    }
+
+    function minarray(array){
+        return array.reduce(function (a,b){
+            return Math.min(a,b);
+        });
+    }
+    function maxarray(array){
+        return array.reduce(function (a,b){
+            return Math.max(a,b);
+        });
     }
 </script>
 </body>
