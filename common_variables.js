@@ -28,7 +28,7 @@ var margin = {
     },
     width = 1640 - margin.left - margin.right,//the width of the streamgraph
     height = 600 - margin.top - margin.bottom,//the height of the streamgraph
-    radius = 80,
+    radius = 74,
     m, n,
     displaymax = 200;
 

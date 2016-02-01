@@ -1,10 +1,6 @@
 
 body {
-    font: 10px sans-serif;
-}
-
-svg {
-    margin: 5px;
+    font-size: 14px;
 }
 
 .axis path, .axis line {
@@ -41,10 +37,10 @@ svg {
 }
 
 .controller {
-    right:0px;
-    top:40px;
+    right: 0px;
+    top: 40px;
     float: right;
-    position:fixed;
+    position: fixed;
 }
 
 .donutarea {
@@ -69,6 +65,7 @@ svg {
 }
 
 .factorarea {
+    font-size: 18px;
     height: 220px;
     float: left;
 }
@@ -89,9 +86,56 @@ svg {
     width: 120px;
 }
 
-.datasmootharea{
-    margin:20px 0 0 0;
+.datasmootharea {
+    margin: 20px 0 0 0;
 }
-.secondrow{
-    margin:0 0 0 30px;
+
+.secondrow {
+    margin: 0 0 0 30px;
+}
+
+.donutsvg_none {
+    margin: 5px;
+    padding: 5px;
+    border: none;
+}
+
+.donutsvg_solid {
+    margin: 5px;
+    padding: 4px;
+    border: solid 1px;
+}
+
+.donutsvg0 {
+    padding: 0px;
+    border: none;
+}
+
+.overlay {
+    background-color: #fff;
+    z-index: 1;
+    position: absolute;
+    /*box-shadow: 10px 10px 5px #ccc;*/
+    /*-moz-box-shadow: 10px 10px 5px #ccc;*/
+    -webkit-box-shadow: 4px 4px 1px #bbb;
+    /*-khtml-box-shadow: 10px 10px 5px #ccc;*/
+    /*- See more at: http://www.corelangs.com/css/box/image-shadow.html#sthash.yIMgYrHr.dpuf*/
+    display:none;
+    /*clear: both;*/
+    /*width:500px;*/
+    /*height:420px;*/
+}
+
+.dissvg {
+    padding: 50px 50px;
+    width: 240px;
+    height: 320px;
+}
+
+#factorsvg {
+    padding-left: 15px;
+}
+
+#qualitysvg {
+    padding-right: 15px;
 }

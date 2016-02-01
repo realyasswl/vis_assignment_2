@@ -6,16 +6,19 @@
     <link href="one.css" type="text/css" rel="stylesheet"/>
     <script src="d3/d3.js"></script>
     <script src="common_variables.js"></script>
+    <script src="js/jquery-2.2.0.js"></script>
+
 </head>
 <body>
 <script>
     dsv(file, function (error, dat) {
                 if (error) throw error;
+
                 dataset = dat.sort(function (a, b) {
                     return a["quality"] - b["quality"]
                 }).filter(function (d, i) {
                     //limit the data size, test and develop use
-//                    return i < 5;
+//                    return i < 200;
                     return true;
                 });
                 factors = d3.keys(dat[0]).filter(function (key) {
@@ -38,7 +41,6 @@
             }
             ]
             ;
-
     var datasmooth = datasmoothlist[dsindex].func;
     function datasmoothareaclick() {
         dsindex = datasmoothlist.length - dsindex - 1;
@@ -48,6 +50,8 @@
         });
         donutPathOperations();
         streamPathsOperations();
+        //ugly patch to fix x
+        x.domain([index_arr[index_arr.length - 1].index0, index_arr[index_arr.length - 1].index1]);
     }
     function transition() {
         streamPathsOperations();
@@ -84,9 +88,13 @@
         donut_svgs = d3.select(".secondrow").selectAll("svg").data(donutDataset(current_dataset), function (d) {
             return d.index;
         });
-        donut_svgs.exit().remove();
+//        donut_svgs.transition.duration(trans_interval).attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+        donut_svgs.exit().transition().duration(trans_interval).delay(function (d, i) {
+//            return 20*i;
+            return 0;
+        }).attr("width", 0).attr("height", 0).attr("class", "donutsvg0");
         donutsvgOperations();
-
+        //ugly patch to fix x
         x.domain([index_arr[index_arr.length - 1].index0, index_arr[index_arr.length - 1].index1]);
         streamgraph_svg.transition()
                 .duration(trans_interval);
@@ -100,11 +108,12 @@
         rect.style("fill-opacity", opacity_rect).attr("x", downx).attr("width", 0);
     }
     function mouseupf(d) {
+        donut_svgs.attr("class", "donutsvg_none");
         up = true;
         index0 = Math.floor(x.invert(rect.attr("x")));
         index1 = Math.ceil(x.invert(parseInt(rect.attr("x")) + parseInt(rect.attr("width"))));
 
-        current_dataset = dataset.slice(index0, index1+1);
+        current_dataset = dataset.slice(index0, index1 + 1);
         streamgraph_svg.style("cursor", "default");
         rect.style("fill-opacity", 0).attr("width", 0);
         if (current_dataset.length > 1) {
@@ -122,6 +131,12 @@
     function mousemovef(d) {
         if (!up) {
             rect.attr("x", Math.min(downx, d3.mouse(this)[0])).attr("width", Math.abs(downx - d3.mouse(this)[0]));
+            index0 =index_arr[index_arr.length - 1].index0+ Math.floor(x.invert(rect.attr("x")));
+            index1 =index_arr[index_arr.length - 1].index0+ Math.ceil(x.invert(parseInt(rect.attr("x")) + parseInt(rect.attr("width"))));
+            donut_svgs = d3.select(".secondrow").selectAll(".donutsvg_solid,.donutsvg_none");//select either one of these two css choosers
+            donut_svgs.attr("class", function (d, i) {
+                return d.index >= index0 && d.index <= index1 ? "donutsvg_solid" :  "donutsvg_none";
+            });
         }
     }
 
@@ -164,7 +179,12 @@
         return stack(result);
     }
     function streampathover() {
-        displayFactorAt(d3.mouse(this), factors[parseInt(this.id)], Math.floor(x.invert(d3.mouse(this)[0])));
+        if ($("#enableoverlay")[0].checked) {
+            d3.select(".overlay").style("display", "inline");
+            displayFactorAt(d3.mouse(this), factors[parseInt(this.id)], Math.round(
+//                index_arr[index_arr.length - 1].index0+
+                    x.invert(d3.mouse(this)[0])));
+        }
     }
     function dataedge(data) {
         var data_edge = [];
@@ -185,10 +205,15 @@
         return data_edge;
     }
     var xAxis, yAxis;
+    var qualityMin=10;
+    var qualityMax=0;
     function draw(data) {
         data.forEach(function (d, i) {
             d.index = i;
-        })
+            qualityMin=Math.min(qualityMin, d.quality);
+            qualityMax=Math.max(qualityMin, d.quality);
+        });
+        console.dir(data);
         current_dataset = data;
         index_arr = [{index0: 0, index1: data.length, index: 0}];
         n = data.length; // number of samples per layer
@@ -202,7 +227,7 @@
 
         x = d3.scale.linear()
                 .range([0, width])
-                .domain([0, n-1]);
+                .domain([0, n - 1]);
 
         y = d3.scale.linear()
                 .domain([0, d3.max(layers, function (layer) {
@@ -213,7 +238,7 @@
                 .range([height, 0]);
         xAxis = d3.svg.axis()
                 .scale(x)
-//                .tickFormat(d3.format("d"))
+                //                .tickFormat(d3.format("d"))
                 .orient("top");
 
         yAxis = d3.svg.axis()
@@ -278,7 +303,7 @@
         ;
 
         var factorarea = donutarea.select(".factorarea")[0][0] ? donutarea.select(".factorarea") : donutarea.append("div").attr("class", "factorarea");
-        var factor_legend = factorarea.append("svg").attr("height", "220").attr("width", "120")
+        var factor_legend = factorarea.append("svg").attr("height", "220").attr("width", "120").style("padding", "5px")
                 .selectAll(".factor_legend")
                 .data(factors)
                 .enter().append("g").attr("class", ".factor_legend")
@@ -305,6 +330,18 @@
         datasmootharea.append("input").attr("type", "button").attr("id", "datasmoothbutton").attr("value", function () {
             return datasmoothlist[dsindex].display;
         }).on("click", datasmoothareaclick);
+
+        var overlay_checkboxes = controller.append("div").attr("class", "overlay_checkboxes");
+        overlay_checkboxes.append('label')
+                .attr('for', "enableoverlay")
+                .append("input")
+//                .attr("checked", false)
+                .attr("type", "checkbox")
+                .attr("id", "enableoverlay")
+                .attr("onClick", "enableoverlay(this)");
+
+        overlay_checkboxes.append("input").attr("id","barCountRange").attr("type","range").attr("min",30).attr("max",100).attr("disabled",true);
+
         var labelarea = controller.select(".labelarea")[0][0] ? controller.select(".labelarea") : controller.append("div").attr("class", "labelarea");
 
         var legend = labelarea.append("svg").attr("height", "60").attr("width", "200")
@@ -347,7 +384,11 @@
     }
 
     function donutsvgOperations() {
+        donut_svgs.transition().duration(trans_interval).attr("class", "donutsvg_none")
+                .attr("width", radius * 2)
+                .attr("height", radius * 2);
         var graphs = donut_svgs.enter().append("svg")
+                .attr("class", "donutsvg_none")
                 .attr("width", radius * 2)
                 .attr("height", radius * 2)
                 .append("g")
@@ -399,8 +440,11 @@
         return donut_dataset;
     }
     function mouseoverPath() {
-//        console.dir(d3.mouse(this));
-//        console.dir(this);this=path
+        if ($("#enableoverlay")[0].checked) {
+            console.dir(this);
+            d3.select(".overlay").style("display", "inline");
+            displayFactorAt(d3.mouse(this), this.__data__.data.key, this.parentNode.__data__.index);
+        }
     }
     var excluded = [];
     var excluded_id = [];
@@ -436,7 +480,7 @@
 
     function streamPathsOperations() {
         var templayer = data2layer(current_dataset, datasmooth);
-        x.domain([0, current_dataset.length-1]);
+        x.domain([0, current_dataset.length - 1]);
         y.domain([0, d3.max(templayer, function (layer) {
             return d3.max(layer, function (d) {
                 return d.y0 + d.y;
@@ -444,8 +488,6 @@
         })]);
 
         xAxis.scale(x);
-
-
         yAxis.scale(y);
 //        streamgraph_svg.select(".backgroundrect").attr();
 
@@ -471,7 +513,7 @@
         };
     }
     function historyclick() {
-        current_dataset = dataset.slice(this.__data__.index0, this.__data__.index1+1);
+        current_dataset = dataset.slice(this.__data__.index0, this.__data__.index1 + 1);
         index_arr = index_arr.slice(0, this.__data__.index + 1);
         transition();
     }
@@ -487,11 +529,173 @@
             .value(function (d) {
                 return datasmooth(d.value);
             });
+    var overlayDiv=d3.select("body").append("div").attr("class","overlay");
+    var factorg=overlayDiv.append("svg").attr("class","dissvg").attr("id","factorsvg").append("g");
+    var qualityg=overlayDiv.append("svg").attr("class","dissvg").attr("id","qualitysvg").append("g");
 
     function displayFactorAt(coordinate, key, global_index) {
-        console.dir(coordinate);
-        console.dir(key);
-        console.dir(global_index);
+//        console.dir(coordinate);
+//        console.dir(key);
+//        console.dir(global_index);
+        var left=coordinate[0]+50+610>1900?coordinate[0]-580:coordinate[0]+50;
+        var top=coordinate[1]+50+424>1000?coordinate[1]-394:coordinate[1]+50;
+        d3.select(".overlay")
+                .style("left",left+"px").style("top",top+"px");
+        var wid=240;
+        var hei=320;
+        var factorresult=factorDistribuation(dataset.map(function(d){
+            return d[key];
+        }).sort(function (a,b){
+            return a-b;
+        }),$("#barCountRange")[0].value);
+        var qualityresult=factorDistribuation(dataset.map(function(d){
+            return d["quality"];
+        }).sort(function (a,b){
+            return a-b;
+        }),qualityMax-qualityMin+1);
+
+        var w=d3.scale.linear().range([0,wid]).domain([Math.max(...factorresult.map(function(d){return d.number;})),0]);
+        var h=d3.scale.linear().range([0,hei]).domain([factorresult[factorresult.length-1].ori,0]);
+
+        var xAxis_overlay = d3.svg.axis().scale(h)
+                .orient("right");
+        var yAxis_overlay = d3.svg.axis().scale(w)
+                .orient("top");
+        factorg.selectAll("rect").remove();
+        factorg.selectAll("g").remove();
+        factorg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate("+wid+",0)")
+                .call(xAxis_overlay)
+                .append("text").text(key)
+                .attr("x",0-hei)
+                .attr("y",40)
+                .attr("transform", "rotate(-90)");
+        ;
+        factorg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis_overlay)
+                .append("text")
+                .attr("y", -40)
+                .attr("x", 50)
+                .attr("dy", ".71em")
+                .style("text-anchor", "end")
+                .text("Frequency");
+
+        factorg.selectAll(".bar")
+                .data(factorresult)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", function (d) {
+                    return w(d.number);
+                })
+                .attr("width", function (d) {
+                    return  wid-w(d.number);
+                })
+                .attr("y", function (d, i) {
+                    return  h(d.ori) - Math.floor(hei / factorresult.length) / 2;
+                })
+                .attr("height", Math.floor(hei / factorresult.length))
+                .style("fill", function () {
+                    return color_factor(key)
+                });
+        var factor_value = dataset[global_index][key];
+//        console.dir(global_index+"["+key+"]:"+factor_value);
+//        console.dir(h(factor_value));
+        factorg.append("rect")
+                .attr("x", 0)
+                .attr("width", wid)
+                .attr("y", function () {
+                    return h(factor_value) - 1;
+                })
+                .attr("height", 2)
+                .style("fill","red");
+
+
+        qualityg.selectAll("rect").remove();
+        qualityg.selectAll("g").remove();
+        w.domain([Math.max(...qualityresult.map(function(d){return d.number;})),0]);
+        console.dir(qualityMin);
+        h.domain([qualityMin,qualityMax]);
+
+         xAxis_overlay = d3.svg.axis().scale(h)
+                .orient("left");
+        yAxis_overlay = d3.svg.axis().scale(w)
+                .orient("top");
+
+        qualityg.append("g")
+                .attr("class", "x axis")
+//                .attr("transform", "translate("+wid+",0)")
+                .call(xAxis_overlay)
+                .append("text").text("quality")
+                .attr("x",0-hei)
+                .attr("y",-40)
+                .attr("transform", "rotate(-90)");
+        ;
+        qualityg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis_overlay)
+                .append("text")
+                .attr("y", -40)
+                .attr("x", 50)
+                .attr("dy", ".71em")
+                .style("text-anchor", "end")
+                .text("Frequency");
+
+        qualityg.selectAll(".bar")
+                .data(qualityresult)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", function (d) {
+                    return 0;
+                })
+                .attr("width", function (d) {
+                    return  wid-w(d.number);
+                })
+                .attr("y", function (d, i) {
+                    return  h(d.ori) - Math.floor(hei / qualityresult.length) / 2;
+                })
+                .attr("height", Math.floor(hei / qualityresult.length))
+                .style("fill", function (d,i) {
+                    return color_quality(d.ori);
+                }).style("fill-opacity", opacity);
+        var quality_value = dataset[global_index]["quality"];
+//        console.dir(global_index+"["+key+"]:"+factor_value);
+//        console.dir(h(factor_value));
+        qualityg.append("rect")
+                .attr("x", 0)
+                .attr("width", wid)
+                .attr("y", function () {
+                    return h(quality_value) - 1;
+                })
+                .attr("height", 2)
+                .style("fill","red");
+    }
+    //we are using a vertical layout, sourceArray should be sorted
+    function factorDistribuation(sourceArray, barCount) {
+        var max = Math.max(...sourceArray);
+        var min = Math.min(...sourceArray);
+        var h = d3.scale.linear().range([min, max])
+                .domain([0, barCount - 1]);
+        return d3.range(barCount).map(function (d, i) {
+            return {
+                number: sourceArray.filter(function (d0) {
+                    return (d0 >= h(i) && d0 < h(i + 1));
+                }).length, ori: h(i)
+            };
+        });
+//        var w = d3.scale.linear().range([0, svgWidth / 2])
+//                .domain([0, Math.max(...disResult)]);
+
+    }
+    function enableoverlay(obj){
+        console.dir(obj);
+        if(obj.checked){
+            $("#barCountRange")[0].disabled=false;
+        } else {
+            d3.select(".overlay").style("display", "none");
+            $("#barCountRange")[0].disabled=true;
+        }
     }
 </script>
 </body>
